@@ -89,7 +89,7 @@ If a file is provided, analyze it thoroughly and extract the main concepts for t
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: chatMessages,
-        stream: true,
+        stream: false,
       }),
     });
 
@@ -111,9 +111,65 @@ If a file is provided, analyze it thoroughly and extract the main concepts for t
       throw new Error("AI gateway error");
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    const data = await response.json();
+    let content = data.choices[0].message.content;
+
+    // Extract visual prompts
+    const visualPromptRegex = /<VISUAL_PROMPT>(.*?)<\/VISUAL_PROMPT>/g;
+    const visualPrompts: string[] = [];
+    let match;
+    
+    while ((match = visualPromptRegex.exec(content)) !== null) {
+      visualPrompts.push(match[1].trim());
+    }
+
+    // Remove visual prompt tags from content
+    const cleanedContent = content.replace(visualPromptRegex, '').trim();
+
+    // Generate images for each visual prompt
+    const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
+    const images: string[] = [];
+
+    if (RAPIDAPI_KEY && visualPrompts.length > 0) {
+      for (const prompt of visualPrompts) {
+        try {
+          console.log("Generating image for prompt:", prompt);
+          const imageResponse = await fetch(
+            `https://ai-text-to-image-generator-flux-free-api.p.rapidapi.com/aiimagegenerator/quick.php?prompt=${encodeURIComponent(prompt)}`,
+            {
+              method: "GET",
+              headers: {
+                "X-RapidAPI-Key": RAPIDAPI_KEY,
+                "X-RapidAPI-Host": "ai-text-to-image-generator-flux-free-api.p.rapidapi.com",
+              },
+            }
+          );
+
+          if (imageResponse.ok) {
+            const imageData = await imageResponse.json();
+            // The API might return the image URL in different formats, adjust based on actual response
+            if (imageData.image || imageData.url || imageData.data) {
+              images.push(imageData.image || imageData.url || imageData.data);
+            }
+          } else {
+            console.error("Image generation failed:", await imageResponse.text());
+          }
+        } catch (error) {
+          console.error("Error generating image:", error);
+        }
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        content: cleanedContent, 
+        images,
+        visualPrompts 
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
     console.error("Chat error:", error);
     return new Response(
