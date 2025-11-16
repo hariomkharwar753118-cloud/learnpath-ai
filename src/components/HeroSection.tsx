@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Upload } from "lucide-react";
 import peachBlob from "@/assets/peach-blob.png";
+import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  
   return (
     <section className="relative w-full min-h-[85vh] px-8 md:px-16 lg:px-24 py-16 md:py-24 overflow-hidden">
       {/* Peach blob background */}
@@ -36,12 +39,12 @@ const HeroSection = () => {
             </a>
             
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Button size="lg" className="gap-3">
+              <Button size="lg" className="gap-3" onClick={() => navigate("/chat")}>
                 <Upload className="w-5 h-5" />
                 Upload PDF
               </Button>
               
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" onClick={() => navigate("/chat")}>
                 Try it now
               </Button>
             </div>
@@ -75,7 +78,7 @@ const HeroSection = () => {
                     </div>
                   </div>
                   
-                  <Button className="w-full" size="sm">
+                  <Button className="w-full" size="sm" onClick={() => navigate("/chat")}>
                     Start learning
                   </Button>
                 </div>
