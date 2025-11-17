@@ -63,14 +63,14 @@ All colors MUST be HSL.
   }
   
   h1 {
-    @apply text-5xl md:text-6xl leading-tight;
+    @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight;
   }
   
   h2 {
-    @apply text-3xl md:text-4xl leading-tight;
+    @apply text-2xl sm:text-3xl md:text-4xl leading-tight;
   }
   
   p {
-    @apply text-lg md:text-xl leading-relaxed;
+    @apply text-base sm:text-lg md:text-xl leading-relaxed;
   }
 }

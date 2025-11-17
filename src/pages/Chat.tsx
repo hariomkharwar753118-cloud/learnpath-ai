@@ -100,36 +100,36 @@ const Chat = () => {
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
       <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate("/")}
-              className="h-10 w-10"
+              className="h-8 w-8 sm:h-10 sm:w-10"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
-            <h1 className="text-2xl font-bold text-foreground">AI Tutor</h1>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">AI Tutor</h1>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Chat */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 order-1">
           <ChatWindow messages={messages} isLoading={isLoading} />
-          <div className="border-t border-border p-4 bg-background">
-            <div className="max-w-4xl mx-auto space-y-4">
+          <div className="border-t border-border p-3 sm:p-4 bg-background">
+            <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
               <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
             </div>
           </div>
         </div>
 
-        {/* Right: Visual Panel */}
-        <div className="w-[400px] border-l border-border p-6 bg-muted/30">
+        {/* Right: Visual Panel - Hidden on mobile, shown on large screens */}
+        <div className="hidden lg:flex lg:w-[400px] xl:w-[500px] border-l border-border p-4 xl:p-6 bg-muted/30 order-2">
           <VisualPanel
             content={latestAssistantMessage?.content || ""}
             images={latestAssistantMessage?.images || []}
