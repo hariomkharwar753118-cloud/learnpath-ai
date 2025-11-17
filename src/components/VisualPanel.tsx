@@ -33,23 +33,23 @@ const VisualPanel = ({ content, images, visualPrompts, isVisible }: VisualPanelP
 
   return (
     <Card className="h-full border-2 border-primary/20 shadow-soft animate-fade-in">
-      <CardContent className="p-6 h-full overflow-y-auto">
-        <div className="space-y-6">
+      <CardContent className="p-4 sm:p-6 h-full overflow-y-auto">
+        <div className="space-y-4 sm:space-y-6">
           {images.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">Visual Explanations</h3>
-              <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-3 sm:space-y-4">
+              <h3 className="text-base sm:text-lg font-semibold text-foreground">Visual Explanations</h3>
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 {images.map((image, index) => (
                   <div key={index} className="space-y-2">
                     {visualPrompts[index] && (
-                      <p className="text-sm text-muted-foreground italic">
+                      <p className="text-xs sm:text-sm text-muted-foreground italic">
                         {visualPrompts[index]}
                       </p>
                     )}
                     <img 
                       src={image} 
                       alt={visualPrompts[index] || `Visual ${index + 1}`}
-                      className="w-full rounded-lg border border-border shadow-sm"
+                      className="w-full max-w-full rounded-lg border border-border shadow-sm"
                       onError={(e) => {
                         console.error("Image failed to load:", image);
                         e.currentTarget.style.display = 'none';
@@ -61,8 +61,8 @@ const VisualPanel = ({ content, images, visualPrompts, isVisible }: VisualPanelP
             </div>
           )}
           
-          <div className="prose prose-slate max-w-none">
-            <div className="whitespace-pre-wrap leading-relaxed">
+          <div className="prose prose-slate max-w-none text-sm sm:text-base">
+            <div className="whitespace-pre-wrap leading-relaxed break-words">
               {content}
             </div>
           </div>

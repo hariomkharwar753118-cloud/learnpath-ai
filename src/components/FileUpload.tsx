@@ -76,14 +76,14 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
   return (
     <div className="space-y-3">
       {selectedFile ? (
-        <div className="flex items-center gap-3 p-4 bg-secondary rounded-2xl border-2 border-primary/20 animate-fade-in">
+        <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-secondary rounded-xl sm:rounded-2xl border-2 border-primary/20 animate-fade-in">
           {selectedFile.type.startsWith("image/") ? (
-            <ImageIcon className="w-6 h-6 text-primary" />
+            <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
           ) : (
-            <FileText className="w-6 h-6 text-primary" />
+            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
+            <p className="text-xs sm:text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
             <p className="text-xs text-muted-foreground">
               {(selectedFile.size / 1024).toFixed(1)} KB
             </p>
@@ -92,9 +92,9 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
             variant="ghost"
             size="icon"
             onClick={removeFile}
-            className="h-8 w-8 shrink-0"
+            className="h-7 w-7 sm:h-8 sm:w-8 shrink-0"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3 h-3 sm:w-4 sm:h-4" />
           </Button>
         </div>
       ) : (
@@ -102,7 +102,7 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+          className={`border-2 border-dashed rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center transition-all ${
             isDragging
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/50 hover:bg-primary/5"
@@ -115,12 +115,12 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
             accept="image/*,.pdf,.txt,.md"
             className="hidden"
           />
-          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm text-foreground mb-1">Drop your file here or</p>
+          <Upload className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-xs sm:text-sm text-foreground mb-1">Drop your file here or</p>
           <Button
             variant="link"
             onClick={() => fileInputRef.current?.click()}
-            className="text-primary p-0 h-auto"
+            className="text-primary p-0 h-auto text-xs sm:text-sm"
           >
             browse files
           </Button>
