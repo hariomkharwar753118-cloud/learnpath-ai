@@ -14,7 +14,198 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          images: string[] | null
+          role: string
+          user_id: string
+          visual_prompts: string[] | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          images?: string[] | null
+          role: string
+          user_id: string
+          visual_prompts?: string[] | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          images?: string[] | null
+          role?: string
+          user_id?: string
+          visual_prompts?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_type: string
+          id: string
+          topic: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_type: string
+          id?: string
+          topic?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_type?: string
+          id?: string
+          topic?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_documents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_memory: {
+        Row: {
+          created_at: string
+          difficulty_level: string | null
+          id: string
+          last_active: string | null
+          learning_style: string | null
+          preferred_format: string | null
+          strengths: string[] | null
+          topics_studied: string[] | null
+          updated_at: string
+          user_id: string
+          weaknesses: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          difficulty_level?: string | null
+          id?: string
+          last_active?: string | null
+          learning_style?: string | null
+          preferred_format?: string | null
+          strengths?: string[] | null
+          topics_studied?: string[] | null
+          updated_at?: string
+          user_id: string
+          weaknesses?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          difficulty_level?: string | null
+          id?: string
+          last_active?: string | null
+          learning_style?: string | null
+          preferred_format?: string | null
+          strengths?: string[] | null
+          topics_studied?: string[] | null
+          updated_at?: string
+          user_id?: string
+          weaknesses?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_memory_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

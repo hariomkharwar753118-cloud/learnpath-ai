@@ -1,8 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CTASection = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleCTAClick = () => {
+    navigate(user ? "/chat" : "/auth");
+  };
   
   return (
     <section className="w-full bg-background px-4 sm:px-8 md:px-16 lg:px-24 py-16 sm:py-20 md:py-32">
@@ -12,7 +18,7 @@ const CTASection = () => {
             Turn any topic into visuals.
           </h2>
           
-          <Button size="lg" className="mt-2 sm:mt-4" onClick={() => navigate("/chat")}>
+          <Button size="lg" className="mt-2 sm:mt-4" onClick={handleCTAClick}>
             Start learning for free
           </Button>
         </div>

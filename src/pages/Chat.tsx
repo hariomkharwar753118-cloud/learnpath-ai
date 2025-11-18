@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile, useUserMemory, useUserDocuments } from "@/hooks/useUserProfile";
+import { supabase } from "@/integrations/supabase/client";
 import ChatWindow from "@/components/ChatWindow";
 import ChatInput from "@/components/ChatInput";
 import FileUpload from "@/components/FileUpload";
 import VisualPanel from "@/components/VisualPanel";
+import WelcomeScreen from "@/components/WelcomeScreen";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Message {
@@ -18,6 +22,7 @@ interface Message {
 const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<{
     file: File;
     content: string;
@@ -25,8 +30,39 @@ const Chat = () => {
   } | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, session, signOut } = useAuth();
+  const { data: profile } = useUserProfile();
+  const { data: userMemory } = useUserMemory();
+  const { data: documents } = useUserDocuments();
+
+  // Create a new conversation on mount
+  useEffect(() => {
+    const createConversation = async () => {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          title: "New Chat",
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating conversation:", error);
+        return;
+      }
+
+      setConversationId(data.id);
+    };
+
+    createConversation();
+  }, [user]);
 
   const streamChat = async (userMessage: string) => {
+    if (!session || !conversationId) return;
+    
     setIsLoading(true);
     
     try {
@@ -36,12 +72,14 @@ const Chat = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             messages: [...messages, { role: "user", content: userMessage }],
             fileContent: currentFile?.content,
             fileType: currentFile?.type,
+            fileName: currentFile?.file.name,
+            conversationId,
           }),
         }
       );
@@ -96,6 +134,8 @@ const Chat = () => {
     .filter(m => m.role === "assistant")
     .pop();
 
+  const lastTopic = documents?.[0]?.topic || "your studies";
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
@@ -110,8 +150,24 @@ const Chat = () => {
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">AI Tutor</h1>
+            <div>
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-foreground">
+                Welcome back, {profile?.full_name?.split(' ')[0] || 'Student'}!
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                Continue learning about {lastTopic}
+              </p>
+            </div>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className="gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </Button>
         </div>
       </div>
 
@@ -119,7 +175,11 @@ const Chat = () => {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Chat */}
         <div className="flex-1 flex flex-col min-w-0 order-1">
-          <ChatWindow messages={messages} isLoading={isLoading} />
+          {messages.length === 0 ? (
+            <WelcomeScreen />
+          ) : (
+            <ChatWindow messages={messages} isLoading={isLoading} />
+          )}
           <div className="border-t border-border p-3 sm:p-4 bg-background">
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />

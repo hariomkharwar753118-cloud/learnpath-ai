@@ -2,9 +2,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Upload } from "lucide-react";
 import peachBlob from "@/assets/peach-blob.png";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const HeroSection = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleCTAClick = () => {
+    navigate(user ? "/chat" : "/auth");
+  };
   
   return (
     <section className="relative w-full min-h-[85vh] px-4 sm:px-8 md:px-16 lg:px-24 py-12 sm:py-16 md:py-24 overflow-hidden">
@@ -39,12 +45,12 @@ const HeroSection = () => {
             </a>
             
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2 sm:pt-4">
-              <Button size="lg" className="gap-3" onClick={() => navigate("/chat")}>
+              <Button size="lg" className="gap-3" onClick={handleCTAClick}>
                 <Upload className="w-5 h-5" />
                 Upload PDF
               </Button>
               
-              <Button variant="outline" size="lg" onClick={() => navigate("/chat")}>
+              <Button variant="outline" size="lg" onClick={handleCTAClick}>
                 Try it now
               </Button>
             </div>
@@ -78,7 +84,7 @@ const HeroSection = () => {
                     </div>
                   </div>
                   
-                  <Button className="w-full text-sm sm:text-base" size="sm" onClick={() => navigate("/chat")}>
+                  <Button className="w-full text-sm sm:text-base" size="sm" onClick={handleCTAClick}>
                     Start learning
                   </Button>
                 </div>
