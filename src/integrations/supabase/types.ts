@@ -121,6 +121,42 @@ export type Database = {
         }
         Relationships: []
       }
+      transcripts: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          expires_at: string
+          fetched_at: string | null
+          id: string
+          source: string
+          transcript: Json
+          video_id: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at: string
+          fetched_at?: string | null
+          id?: string
+          source?: string
+          transcript: Json
+          video_id: string
+          video_url: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string
+          fetched_at?: string | null
+          id?: string
+          source?: string
+          transcript?: Json
+          video_id?: string
+          video_url?: string
+        }
+        Relationships: []
+      }
       user_documents: {
         Row: {
           created_at: string

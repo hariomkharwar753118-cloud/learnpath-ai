@@ -8,6 +8,8 @@ import ChatInput from "@/components/ChatInput";
 import FileUpload from "@/components/FileUpload";
 import VisualPanel from "@/components/VisualPanel";
 import WelcomeScreen from "@/components/WelcomeScreen";
+import TranscriptPanel from "@/components/TranscriptPanel";
+import LearningPanel from "@/components/LearningPanel";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +30,19 @@ const Chat = () => {
     content: string;
     type: string;
   } | null>(null);
+  const [transcriptState, setTranscriptState] = useState<{
+    isTranscribing: boolean;
+    videoId: string | null;
+    videoUrl: string | null;
+    lesson: { content: string; visualPrompts: string[]; images: string[] } | null;
+    cached: boolean;
+  }>({
+    isTranscribing: false,
+    videoId: null,
+    videoUrl: null,
+    lesson: null,
+    cached: false,
+  });
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, session, signOut } = useAuth();
@@ -130,6 +145,82 @@ const Chat = () => {
     });
   };
 
+  const handleTranscribeYouTube = async (videoUrl: string) => {
+    if (!session) return;
+    
+    setTranscriptState({
+      isTranscribing: true,
+      videoId: null,
+      videoUrl: videoUrl,
+      lesson: null,
+      cached: false,
+    });
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ videoUrl }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to transcribe video");
+      }
+
+      const data = await response.json();
+
+      // Update transcript state with results
+      setTranscriptState({
+        isTranscribing: false,
+        videoId: data.videoId,
+        videoUrl: data.videoUrl,
+        lesson: data.lesson,
+        cached: data.cached || false,
+      });
+
+      // Add to messages
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "user",
+          content: `Transcribe and explain: ${videoUrl}`,
+        },
+        {
+          role: "assistant",
+          content: data.lesson.content,
+          images: data.lesson.images || [],
+          visualPrompts: data.lesson.visualPrompts || [],
+        },
+      ]);
+
+      toast({
+        title: "Transcript ready!",
+        description: "Your personalized lesson has been generated.",
+      });
+    } catch (error) {
+      console.error("Transcription error:", error);
+      setTranscriptState({
+        isTranscribing: false,
+        videoId: null,
+        videoUrl: null,
+        lesson: null,
+        cached: false,
+      });
+      toast({
+        title: "Transcription failed",
+        description: error instanceof Error ? error.message : "Please try again or check the URL.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const latestAssistantMessage = messages
     .filter(m => m.role === "assistant")
     .pop();
@@ -183,19 +274,42 @@ const Chat = () => {
           <div className="border-t border-border p-3 sm:p-4 bg-background">
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
-              <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+              <ChatInput 
+                onSendMessage={handleSendMessage} 
+                onTranscribeYouTube={handleTranscribeYouTube}
+                disabled={isLoading || transcriptState.isTranscribing} 
+              />
             </div>
           </div>
         </div>
 
         {/* Right: Visual Panel - Hidden on mobile, shown on large screens */}
-        <div className="hidden lg:flex lg:w-[400px] xl:w-[500px] border-l border-border p-4 xl:p-6 bg-muted/30 order-2">
-          <VisualPanel
-            content={latestAssistantMessage?.content || ""}
-            images={latestAssistantMessage?.images || []}
-            visualPrompts={latestAssistantMessage?.visualPrompts || []}
-            isVisible={messages.length > 0}
-          />
+        <div className="hidden lg:flex lg:w-[400px] xl:w-[500px] border-l border-border bg-muted/30 order-2 overflow-y-auto">
+          {transcriptState.isTranscribing && transcriptState.videoId && transcriptState.videoUrl ? (
+            <div className="p-4 xl:p-6">
+              <TranscriptPanel
+                videoId={transcriptState.videoId}
+                videoUrl={transcriptState.videoUrl}
+                isLoading={transcriptState.isTranscribing}
+                cached={transcriptState.cached}
+              />
+            </div>
+          ) : transcriptState.lesson ? (
+            <LearningPanel
+              content={transcriptState.lesson.content}
+              visualPrompts={transcriptState.lesson.visualPrompts}
+              images={transcriptState.lesson.images}
+            />
+          ) : (
+            <div className="p-4 xl:p-6">
+              <VisualPanel
+                content={latestAssistantMessage?.content || ""}
+                images={latestAssistantMessage?.images || []}
+                visualPrompts={latestAssistantMessage?.visualPrompts || []}
+                isVisible={messages.length > 0}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
