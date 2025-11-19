@@ -29,14 +29,23 @@ serve(async (req) => {
       });
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = authHeader.replace("Bearer ", "");
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Initialize Supabase client with proper auth
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: { 
+          headers: { 
+            Authorization: authHeader 
+          } 
+        },
+      }
+    );
 
-    // Get authenticated user
+    // Validate session and get authenticated user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
