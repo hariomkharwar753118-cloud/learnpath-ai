@@ -23,11 +23,14 @@ serve(async (req) => {
     // Get auth token from request
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      console.error("Missing Authorization header");
+      return new Response(JSON.stringify({ error: "Unauthorized - No auth header" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log("Auth header present, initializing Supabase client...");
 
     // Initialize Supabase client with proper auth
     const supabase = createClient(
@@ -39,18 +42,37 @@ serve(async (req) => {
             Authorization: authHeader 
           } 
         },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        }
       }
     );
 
     // Validate session and get authenticated user
+    console.log("Validating user session...");
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      console.error("Auth error:", userError);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    
+    if (userError) {
+      console.error("Auth validation error:", userError.message, userError.status);
+      return new Response(JSON.stringify({ 
+        error: "Unauthorized - Invalid session", 
+        details: userError.message 
+      }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    
+    if (!user) {
+      console.error("No user found in session");
+      return new Response(JSON.stringify({ error: "Unauthorized - No user" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log("User authenticated successfully:", user.id);
 
     // Fetch user memory for personalization
     const { data: userMemory } = await supabase

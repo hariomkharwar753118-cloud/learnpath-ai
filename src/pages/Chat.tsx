@@ -81,13 +81,21 @@ const Chat = () => {
     setIsLoading(true);
     
     try {
+      // Get fresh session to ensure token is valid
+      const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !freshSession) {
+        throw new Error("Authentication session expired. Please sign in again.");
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            "Authorization": `Bearer ${freshSession.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
             messages: [...messages, { role: "user", content: userMessage }],
@@ -157,13 +165,21 @@ const Chat = () => {
     });
 
     try {
+      // Get fresh session to ensure token is valid
+      const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !freshSession) {
+        throw new Error("Authentication session expired. Please sign in again.");
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            "Authorization": `Bearer ${freshSession.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({ videoUrl }),
         }
