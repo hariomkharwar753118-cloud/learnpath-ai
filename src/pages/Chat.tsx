@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile, useUserMemory, useUserDocuments } from "@/hooks/useUserProfile";
-import { supabase } from "@/integrations/supabase/client";
+import { ApiService } from "@/services/api";
 import ChatWindow from "@/components/ChatWindow";
 import ChatInput from "@/components/ChatInput";
 import FileUpload from "@/components/FileUpload";
@@ -45,75 +45,42 @@ const Chat = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, session, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { data: profile } = useUserProfile();
-  const { data: userMemory } = useUserMemory();
   const { data: documents } = useUserDocuments();
 
   // Create a new conversation on mount
   useEffect(() => {
-    const createConversation = async () => {
+    const initChat = async () => {
       if (!user) return;
-
-      const { data, error } = await supabase
-        .from("conversations")
-        .insert({
-          user_id: user.id,
-          title: "New Chat",
-        })
-        .select()
-        .single();
-
-      if (error) {
+      try {
+        const data = await ApiService.createConversation();
+        setConversationId(data.id);
+      } catch (error) {
         console.error("Error creating conversation:", error);
-        return;
+        toast({
+          title: "Connection Error",
+          description: "Failed to initialize chat. Please refresh.",
+          variant: "destructive",
+        });
       }
-
-      setConversationId(data.id);
     };
 
-    createConversation();
+    initChat();
   }, [user]);
 
   const streamChat = async (userMessage: string) => {
-    if (!session || !conversationId) return;
-    
+    if (!conversationId) return;
+
     setIsLoading(true);
-    
+
     try {
-      // Get fresh session to ensure token is valid
-      const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !freshSession) {
-        throw new Error("Authentication session expired. Please sign in again.");
-      }
+      const data = await ApiService.sendMessage(userMessage, conversationId, currentFile ? {
+        content: currentFile.content,
+        type: currentFile.type,
+        name: currentFile.file.name
+      } : undefined);
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${freshSession.access_token}`,
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            messages: [...messages, { role: "user", content: userMessage }],
-            fileContent: currentFile?.content,
-            fileType: currentFile?.type,
-            fileName: currentFile?.file.name,
-            conversationId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to get response");
-      }
-
-      const data = await response.json();
-      
       // Add assistant message with cleaned content and images
       setMessages(prev => [
         ...prev,
@@ -154,8 +121,8 @@ const Chat = () => {
   };
 
   const handleTranscribeYouTube = async (videoUrl: string) => {
-    if (!session) return;
-    
+    if (!user) return;
+
     setTranscriptState({
       isTranscribing: true,
       videoId: null,
@@ -165,32 +132,8 @@ const Chat = () => {
     });
 
     try {
-      // Get fresh session to ensure token is valid
-      const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !freshSession) {
-        throw new Error("Authentication session expired. Please sign in again.");
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${freshSession.access_token}`,
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ videoUrl }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to transcribe video");
-      }
-
-      const data = await response.json();
+      // This calls our backend which calls RapidAPI FIRST, then Gemini
+      const data = await ApiService.transcribeVideo(videoUrl, conversationId || undefined);
 
       // Update transcript state with results
       setTranscriptState({
@@ -290,10 +233,10 @@ const Chat = () => {
           <div className="border-t border-border p-3 sm:p-4 bg-background">
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
-              <ChatInput 
-                onSendMessage={handleSendMessage} 
+              <ChatInput
+                onSendMessage={handleSendMessage}
                 onTranscribeYouTube={handleTranscribeYouTube}
-                disabled={isLoading || transcriptState.isTranscribing} 
+                disabled={isLoading || transcriptState.isTranscribing}
               />
             </div>
           </div>

@@ -10,17 +10,17 @@ const corsHeaders = {
 function extractVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
-    
+
     // Handle youtube.com/watch?v=VIDEO_ID
     if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('www.youtube.com')) {
       return urlObj.searchParams.get('v');
     }
-    
+
     // Handle youtu.be/VIDEO_ID
     if (urlObj.hostname.includes('youtu.be')) {
       return urlObj.pathname.slice(1).split('?')[0];
     }
-    
+
     return null;
   } catch (e) {
     console.error("Error parsing URL:", e);
@@ -31,19 +31,19 @@ function extractVideoId(url: string): string | null {
 // Fetch with exponential backoff retry
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response;
     } catch (err) {
       lastError = err as Error;
-      
+
       if (attempt < maxRetries) {
         const delay = 300 * Math.pow(2, attempt);
         console.log(`Retry attempt ${attempt + 1} after ${delay}ms`);
@@ -51,7 +51,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
       }
     }
   }
-  
+
   throw lastError || new Error("Max retries exceeded");
 }
 
@@ -61,14 +61,14 @@ serve(async (req) => {
   }
 
   try {
-    const { videoUrl } = await req.json();
+    const { videoUrl, conversationId } = await req.json();
     const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+
     if (!RAPIDAPI_KEY) {
       throw new Error("RAPIDAPI_KEY is not configured");
     }
-    
+
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
@@ -82,11 +82,11 @@ serve(async (req) => {
 
     // Get and validate auth token from request
     const authHeader = req.headers.get("Authorization") || "";
-    
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.error("Missing or invalid Authorization header");
       return new Response(
-        JSON.stringify({ error: "Unauthorized - Missing or invalid Authorization header" }), 
+        JSON.stringify({ error: "Unauthorized - Missing or invalid Authorization header" }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -106,25 +106,25 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     console.log("Validating user session with token...");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+
     if (userError) {
       console.error("Auth validation error:", userError.message);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Unauthorized - Invalid session",
-          details: userError.message 
-        }), 
+          details: userError.message
+        }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-    
+
     if (!user) {
       console.error("No user found in session");
       return new Response(
-        JSON.stringify({ error: "Unauthorized - No user found" }), 
+        JSON.stringify({ error: "Unauthorized - No user found" }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -155,53 +155,55 @@ serve(async (req) => {
     const now = new Date();
     if (cached && new Date(cached.expires_at) > now) {
       console.log("Using cached transcript");
-      return new Response(
-        JSON.stringify({ 
-          videoId,
-          transcript: cached.transcript,
-          source: "cache",
-          cached: true
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+
+      // Even if cached, we might need to insert the lesson into messages if conversationId is provided
+      // But we don't have the *lesson* content stored in the transcript table (only raw transcript).
+      // So we might need to regenerate the lesson OR store the lesson in the transcript table.
+      // For now, we will regenerate the lesson using the cached transcript to ensure it's fresh and personalized.
+      // This is slightly inefficient but ensures personalization.
     }
 
-    // Fetch transcript from RapidAPI
-    console.log("Fetching fresh transcript from RapidAPI...");
-    const rapidUrl = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`;
-    
-    const rapidResponse = await fetchWithRetry(rapidUrl, {
-      method: "GET",
-      headers: {
-        "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": "youtube-transcriptor.p.rapidapi.com",
-      },
-    });
+    // Fetch transcript from RapidAPI if not cached
+    let transcriptData;
+    if (!cached || new Date(cached.expires_at) <= now) {
+      console.log("Fetching fresh transcript from RapidAPI...");
+      const rapidUrl = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`;
 
-    const transcriptData = await rapidResponse.json();
-    
-    // Validate transcript data
-    if (!transcriptData || (Array.isArray(transcriptData) && transcriptData.length === 0)) {
-      throw new Error("Transcript is empty or invalid");
+      const rapidResponse = await fetchWithRetry(rapidUrl, {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": RAPIDAPI_KEY,
+          "x-rapidapi-host": "youtube-transcriptor.p.rapidapi.com",
+        },
+      });
+
+      transcriptData = await rapidResponse.json();
+
+      // Validate transcript data
+      if (!transcriptData || (Array.isArray(transcriptData) && transcriptData.length === 0)) {
+        throw new Error("Transcript is empty or invalid");
+      }
+
+      console.log("Transcript fetched successfully");
+
+      // Store in Supabase with 7-day TTL
+      const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+      await supabase
+        .from("transcripts")
+        .upsert({
+          video_id: videoId,
+          video_url: videoUrl,
+          transcript: transcriptData,
+          source: "rapidapi",
+          fetched_at: now.toISOString(),
+          expires_at: expiresAt,
+          created_by: user.id,
+        }, { onConflict: 'video_id' });
+
+      console.log("Transcript cached in database");
+    } else {
+      transcriptData = cached.transcript;
     }
-
-    console.log("Transcript fetched successfully");
-
-    // Store in Supabase with 7-day TTL
-    const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
-    await supabase
-      .from("transcripts")
-      .upsert({
-        video_id: videoId,
-        video_url: videoUrl,
-        transcript: transcriptData,
-        source: "rapidapi",
-        fetched_at: now.toISOString(),
-        expires_at: expiresAt,
-        created_by: user.id,
-      }, { onConflict: 'video_id' });
-
-    console.log("Transcript cached in database");
 
     // Fetch user memory for personalization
     const { data: userMemory } = await supabase
@@ -328,13 +330,13 @@ Analyze the YouTube video transcript below and create a comprehensive, kid-frien
     if (!aiResponse.ok) {
       const errorData = await aiResponse.json();
       console.error("AI Gateway Error:", errorData);
-      
+
       if (aiResponse.status === 429) {
         throw new Error("Rate limit exceeded. Please try again in a moment.");
       } else if (aiResponse.status === 402) {
         throw new Error("Usage limit reached. Please check your plan.");
       }
-      
+
       throw new Error(errorData.error?.message || "Failed to get AI response");
     }
 
@@ -347,7 +349,7 @@ Analyze the YouTube video transcript below and create a comprehensive, kid-frien
     const visualPromptRegex = /<VISUAL_PROMPT>(.*?)<\/VISUAL_PROMPT>/g;
     const visualPrompts: string[] = [];
     let match;
-    
+
     while ((match = visualPromptRegex.exec(lessonContent)) !== null) {
       visualPrompts.push(match[1].trim());
     }
@@ -357,11 +359,46 @@ Analyze the YouTube video transcript below and create a comprehensive, kid-frien
 
     // Generate images for visual prompts (if RAPIDAPI supports image generation)
     const images: string[] = [];
-    
+
     // Note: Image generation would go here if needed
     // For now, we'll return the visual prompts for the UI to handle
 
     // Return structured response
+    // Store the generated lesson in user_documents for future context retrieval
+    const lessonTitle = `Lesson: ${transcriptData.title || videoId}`;
+
+    await supabase.from("user_documents").insert({
+      user_id: user.id,
+      file_name: lessonTitle,
+      file_type: "youtube_lesson",
+      topic: visualPrompts[0] || "YouTube Lesson", // Use first visual prompt as topic proxy or generic
+    });
+
+    // Update user memory with the new topic
+    if (visualPrompts.length > 0) {
+      const topic = visualPrompts[0].substring(0, 50);
+      const { data: memory } = await supabase.from("user_memory").select("topics_studied").eq("user_id", user.id).single();
+      const currentTopics = memory?.topics_studied || [];
+      if (!currentTopics.includes(topic)) {
+        await supabase.from("user_memory").update({
+          topics_studied: [...currentTopics, topic]
+        }).eq("user_id", user.id);
+      }
+    }
+
+    // If conversationId is provided, store the lesson in the messages table
+    // This ensures the lesson is part of the conversation context for future queries (RAG-lite)
+    if (conversationId) {
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: "assistant",
+        content: cleanedContent,
+        images: images,
+        visual_prompts: visualPrompts,
+      });
+    }
+
     return new Response(
       JSON.stringify({
         videoId,
