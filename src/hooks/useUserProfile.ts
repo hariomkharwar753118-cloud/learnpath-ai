@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { ApiService } from "@/services/api";
 
 export const useUserProfile = () => {
   const { user } = useAuth();
@@ -51,15 +52,8 @@ export const useUserConversations = () => {
     queryKey: ["conversations", user?.id],
     queryFn: async () => {
       if (!user) return [];
-
-      const { data, error } = await supabase
-        .from("conversations")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
+      // Use ApiService to fetch from backend (Lovable Cloud)
+      return await ApiService.getConversations();
     },
     enabled: !!user,
   });
