@@ -48,6 +48,39 @@ export class ApiService {
         return response.json();
     }
 
+    static async getUserProfile() {
+        const headers = await this.getHeaders();
+        const response = await fetch(`${FUNCTIONS_URL}/user-data?type=profile`, {
+            method: "GET",
+            headers,
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch profile");
+        return response.json();
+    }
+
+    static async getUserMemory() {
+        const headers = await this.getHeaders();
+        const response = await fetch(`${FUNCTIONS_URL}/user-data?type=memory`, {
+            method: "GET",
+            headers,
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch memory");
+        return response.json();
+    }
+
+    static async getUserDocuments() {
+        const headers = await this.getHeaders();
+        const response = await fetch(`${FUNCTIONS_URL}/user-data?type=documents`, {
+            method: "GET",
+            headers,
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch documents");
+        return response.json();
+    }
+
     static async sendMessage(
         message: string,
         conversationId: string,
