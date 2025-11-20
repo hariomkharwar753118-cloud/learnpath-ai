@@ -250,22 +250,29 @@ serve(async (req) => {
     personalizedPrompt += `
 
 **YOUR TASK:**
-Analyze the YouTube video transcript below and create a comprehensive, kid-friendly educational lesson.
+Restructure this transcript into a clear, simple lesson with:
+
+🔹 Simple Explanation
+🔹 Key Points
+🔹 Real-world Examples
+🔹 Quiz with Answers
+
+Make it fun, easy, and full of emojis.
 
 **MANDATORY OUTPUT STRUCTURE:**
 
 # [Video Topic Title]
 
-## Simple Explanation
+## 🔹 Simple Explanation
 [2-3 sentences explaining the main concept in simple terms, suitable for a 10-year-old]
 
-## Key Points
+## 🔹 Key Points
 - [Point 1]
 - [Point 2]
 - [Point 3]
 <VISUAL_PROMPT>[5-15 word description for a diagram showing key points]</VISUAL_PROMPT>
 
-## Step-by-Step Breakdown
+## 🔹 Step-by-Step Breakdown
 1. **[Step Name]**: [Explanation]
    <VISUAL_PROMPT>[diagram description for this step]</VISUAL_PROMPT>
 
@@ -274,11 +281,11 @@ Analyze the YouTube video transcript below and create a comprehensive, kid-frien
 
 [Continue for 3-5 steps as needed]
 
-## Real-Life Example
+## 🔹 Real-Life Example
 [Concrete, relatable example that demonstrates the concept]
 <VISUAL_PROMPT>[diagram showing the real-life example]</VISUAL_PROMPT>
 
-## Quick Quiz (Test Your Knowledge)
+## 🔹 Quiz with Answers
 1. **Question 1**: [Question text]
    - A) [Option A]
    - B) [Option B]
@@ -300,13 +307,10 @@ Analyze the YouTube video transcript below and create a comprehensive, kid-frien
    - D) [Option D]
    *Answer: [Correct answer letter and brief explanation]*
 
-## Follow-Up Question
-[Ask an engaging question to check understanding and encourage deeper thinking]
-
 **IMPORTANT RULES:**
 - Use age-appropriate language (10-year-old level)
 - Include visual descriptions in <VISUAL_PROMPT> tags
-- Make it engaging and fun
+- Make it engaging and fun with emojis
 - Connect to real-world applications
 - Always follow the structure above`;
 

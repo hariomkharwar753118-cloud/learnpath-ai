@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserProfile, useUserMemory, useUserDocuments } from "@/hooks/useUserProfile";
+import { useUserProfile, useUserDocuments } from "@/hooks/useUserProfile";
 import { ApiService } from "@/services/api";
 import ChatWindow from "@/components/ChatWindow";
 import ChatInput from "@/components/ChatInput";
@@ -12,7 +12,7 @@ import TranscriptPanel from "@/components/TranscriptPanel";
 import LearningPanel from "@/components/LearningPanel";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface Message {
   role: "user" | "assistant";
@@ -22,9 +22,10 @@ interface Message {
 }
 
 const Chat = () => {
+  const { conversationId: urlConversationId } = useParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(urlConversationId || null);
   const [currentFile, setCurrentFile] = useState<{
     file: File;
     content: string;
@@ -49,25 +50,55 @@ const Chat = () => {
   const { data: profile } = useUserProfile();
   const { data: documents } = useUserDocuments();
 
-  // Create a new conversation on mount
+  // Initialize Chat: Fetch history or create new
   useEffect(() => {
     const initChat = async () => {
       if (!user) return;
-      try {
-        const data = await ApiService.createConversation();
-        setConversationId(data.id);
-      } catch (error) {
-        console.error("Error creating conversation:", error);
-        toast({
-          title: "Connection Error",
-          description: "Failed to initialize chat. Please refresh.",
-          variant: "destructive",
-        });
+
+      if (urlConversationId) {
+        setConversationId(urlConversationId);
+        setIsLoading(true);
+        try {
+          // Fetch history from backend
+          const history = await ApiService.getMessages(urlConversationId);
+          // Map backend messages to UI format
+          const formattedMessages = history.map((msg: any) => ({
+            role: msg.role,
+            content: msg.content,
+            images: msg.images,
+            visualPrompts: msg.visual_prompts
+          }));
+          setMessages(formattedMessages);
+        } catch (error) {
+          console.error("Error fetching history:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load chat history.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        // Create new conversation if no ID in URL
+        try {
+          const data = await ApiService.createConversation();
+          setConversationId(data.id);
+          // Update URL without reloading
+          navigate(`/chat/${data.id}`, { replace: true });
+        } catch (error) {
+          console.error("Error creating conversation:", error);
+          toast({
+            title: "Connection Error",
+            description: "Failed to initialize chat. Please refresh.",
+            variant: "destructive",
+          });
+        }
       }
     };
 
     initChat();
-  }, [user]);
+  }, [user, urlConversationId, navigate, toast]);
 
   const streamChat = async (userMessage: string) => {
     if (!conversationId) return;

@@ -15,20 +15,37 @@ export class ApiService {
     }
 
     static async createConversation(title: string = "New Chat") {
-        // We'll use the existing Supabase client for this simple operation 
-        // to avoid creating a new Edge Function just for this, 
-        // BUT we wrap it here so the UI doesn't know about Supabase.
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not found");
+        const headers = await this.getHeaders();
+        const response = await fetch(`${FUNCTIONS_URL}/conversations`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ title }),
+        });
 
-        const { data, error } = await supabase
-            .from("conversations")
-            .insert({ user_id: user.id, title })
-            .select()
-            .single();
+        if (!response.ok) throw new Error("Failed to create conversation");
+        return response.json();
+    }
 
-        if (error) throw error;
-        return data;
+    static async getConversations() {
+        const headers = await this.getHeaders();
+        const response = await fetch(`${FUNCTIONS_URL}/conversations`, {
+            method: "GET",
+            headers,
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch conversations");
+        return response.json();
+    }
+
+    static async getMessages(conversationId: string) {
+        const headers = await this.getHeaders();
+        const response = await fetch(`${FUNCTIONS_URL}/conversations?id=${conversationId}`, {
+            method: "GET",
+            headers,
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch messages");
+        return response.json();
     }
 
     static async sendMessage(
@@ -42,7 +59,7 @@ export class ApiService {
             method: "POST",
             headers,
             body: JSON.stringify({
-                messages: [{ role: "user", content: message }],
+                message, // Changed from messages array to single message string
                 conversationId,
                 fileContent: file?.content,
                 fileType: file?.type,
