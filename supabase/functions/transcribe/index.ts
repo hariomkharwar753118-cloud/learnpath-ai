@@ -96,26 +96,16 @@ serve(async (req) => {
 
     console.log("Valid auth header present, initializing Supabase client...");
 
-    // Initialize Supabase client with proper auth
+    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      {
-        global: { 
-          headers: { 
-            Authorization: authHeader 
-          } 
-        },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        }
-      }
+      Deno.env.get("SUPABASE_ANON_KEY")!
     );
 
-    // Validate session and get authenticated user
-    console.log("Validating user session...");
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Extract JWT token and validate user session
+    const token = authHeader.replace('Bearer ', '');
+    console.log("Validating user session with token...");
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError) {
       console.error("Auth validation error:", userError.message);
