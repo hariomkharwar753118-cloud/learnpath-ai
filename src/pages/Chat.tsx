@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserProfile, useUserDocuments } from "@/hooks/useUserProfile";
-import { ApiService } from "@/services/api";
+import { useUserProfile, useUserMemory, useUserDocuments } from "@/hooks/useUserProfile";
+import { supabase } from "@/integrations/supabase/client";
 import ChatWindow from "@/components/ChatWindow";
 import ChatInput from "@/components/ChatInput";
 import FileUpload from "@/components/FileUpload";
@@ -12,7 +12,7 @@ import TranscriptPanel from "@/components/TranscriptPanel";
 import LearningPanel from "@/components/LearningPanel";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 interface Message {
   role: "user" | "assistant";
@@ -22,10 +22,9 @@ interface Message {
 }
 
 const Chat = () => {
-  const { conversationId: urlConversationId } = useParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(urlConversationId || null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<{
     file: File;
     content: string;
@@ -46,72 +45,75 @@ const Chat = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, session, signOut } = useAuth();
   const { data: profile } = useUserProfile();
+  const { data: userMemory } = useUserMemory();
   const { data: documents } = useUserDocuments();
 
-  // Initialize Chat: Fetch history or create new
+  // Create a new conversation on mount
   useEffect(() => {
-    const initChat = async () => {
+    const createConversation = async () => {
       if (!user) return;
 
-      if (urlConversationId) {
-        setConversationId(urlConversationId);
-        setIsLoading(true);
-        try {
-          // Fetch history from backend
-          const history = await ApiService.getMessages(urlConversationId);
-          // Map backend messages to UI format
-          const formattedMessages = history.map((msg: any) => ({
-            role: msg.role,
-            content: msg.content,
-            images: msg.images,
-            visualPrompts: msg.visual_prompts
-          }));
-          setMessages(formattedMessages);
-        } catch (error) {
-          console.error("Error fetching history:", error);
-          toast({
-            title: "Error",
-            description: "Failed to load chat history.",
-            variant: "destructive",
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        // Create new conversation if no ID in URL
-        try {
-          const data = await ApiService.createConversation();
-          setConversationId(data.id);
-          // Update URL without reloading
-          navigate(`/chat/${data.id}`, { replace: true });
-        } catch (error) {
-          console.error("Error creating conversation:", error);
-          toast({
-            title: "Connection Error",
-            description: "Failed to initialize chat. Please refresh.",
-            variant: "destructive",
-          });
-        }
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          title: "New Chat",
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating conversation:", error);
+        return;
       }
+
+      setConversationId(data.id);
     };
 
-    initChat();
-  }, [user, urlConversationId, navigate, toast]);
+    createConversation();
+  }, [user]);
 
   const streamChat = async (userMessage: string) => {
-    if (!conversationId) return;
-
+    if (!session || !conversationId) return;
+    
     setIsLoading(true);
-
+    
     try {
-      const data = await ApiService.sendMessage(userMessage, conversationId, currentFile ? {
-        content: currentFile.content,
-        type: currentFile.type,
-        name: currentFile.file.name
-      } : undefined);
+      // Get fresh session to ensure token is valid
+      const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !freshSession) {
+        throw new Error("Authentication session expired. Please sign in again.");
+      }
 
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${freshSession.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            messages: [...messages, { role: "user", content: userMessage }],
+            fileContent: currentFile?.content,
+            fileType: currentFile?.type,
+            fileName: currentFile?.file.name,
+            conversationId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to get response");
+      }
+
+      const data = await response.json();
+      
       // Add assistant message with cleaned content and images
       setMessages(prev => [
         ...prev,
@@ -152,8 +154,8 @@ const Chat = () => {
   };
 
   const handleTranscribeYouTube = async (videoUrl: string) => {
-    if (!user) return;
-
+    if (!session) return;
+    
     setTranscriptState({
       isTranscribing: true,
       videoId: null,
@@ -163,8 +165,32 @@ const Chat = () => {
     });
 
     try {
-      // This calls our backend which calls RapidAPI FIRST, then Gemini
-      const data = await ApiService.transcribeVideo(videoUrl, conversationId || undefined);
+      // Get fresh session to ensure token is valid
+      const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !freshSession) {
+        throw new Error("Authentication session expired. Please sign in again.");
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${freshSession.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ videoUrl }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to transcribe video");
+      }
+
+      const data = await response.json();
 
       // Update transcript state with results
       setTranscriptState({
@@ -264,10 +290,10 @@ const Chat = () => {
           <div className="border-t border-border p-3 sm:p-4 bg-background">
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
-              <ChatInput
-                onSendMessage={handleSendMessage}
+              <ChatInput 
+                onSendMessage={handleSendMessage} 
                 onTranscribeYouTube={handleTranscribeYouTube}
-                disabled={isLoading || transcriptState.isTranscribing}
+                disabled={isLoading || transcriptState.isTranscribing} 
               />
             </div>
           </div>

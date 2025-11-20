@@ -22,7 +22,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/chat/:conversationId?" element={
+            <Route path="/chat" element={
               <ProtectedRoute>
                 <Chat />
               </ProtectedRoute>
