@@ -13,6 +13,7 @@ interface ChatWindowProps {
 
 const ChatWindow = ({ messages, isLoading }: ChatWindowProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -23,7 +24,11 @@ const ChatWindow = ({ messages, isLoading }: ChatWindowProps) => {
   }, [messages]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
+    <div 
+      ref={scrollContainerRef}
+      className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4"
+      style={{ pointerEvents: 'auto' }}
+    >
       {messages.length === 0 && (
         <div className="flex items-center justify-center h-full text-muted-foreground px-4">
           <div className="text-center space-y-2">

@@ -74,9 +74,9 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" style={{ pointerEvents: 'auto' }}>
       {selectedFile ? (
-        <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-secondary rounded-xl sm:rounded-2xl border-2 border-primary/20 animate-fade-in">
+        <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-secondary rounded-xl sm:rounded-2xl border-2 border-primary/20 animate-fade-in" style={{ pointerEvents: 'auto' }}>
           {selectedFile.type.startsWith("image/") ? (
             <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
           ) : (
@@ -107,6 +107,7 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/50 hover:bg-primary/5"
           }`}
+          style={{ pointerEvents: 'auto' }}
         >
           <input
             ref={fileInputRef}
