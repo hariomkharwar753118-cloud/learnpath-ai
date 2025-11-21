@@ -42,7 +42,12 @@ const ChatInput = ({ onSendMessage, onTranscribeYouTube, disabled }: ChatInputPr
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      // Auto-transcribe if YouTube URL detected
+      if (youtubeInfo.isYouTubeUrl && youtubeInfo.url && onTranscribeYouTube) {
+        handleTranscribe();
+      } else {
+        handleSend();
+      }
     }
   };
 
