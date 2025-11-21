@@ -281,13 +281,13 @@ const Chat = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Chat */}
-        <div className="flex-1 flex flex-col min-w-0 order-1">
+        <div className="flex-1 flex flex-col min-w-0 order-1" style={{ pointerEvents: 'auto' }}>
           {messages.length === 0 ? (
             <WelcomeScreen />
           ) : (
             <ChatWindow messages={messages} isLoading={isLoading} />
           )}
-          <div className="border-t border-border p-3 sm:p-4 bg-background">
+          <div className="border-t border-border p-3 sm:p-4 bg-background" style={{ pointerEvents: 'auto' }}>
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
               <ChatInput 
