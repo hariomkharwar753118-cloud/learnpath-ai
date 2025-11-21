@@ -52,41 +52,39 @@ const ChatInput = ({ onSendMessage, onTranscribeYouTube, disabled }: ChatInputPr
   };
 
   return (
-    <div className="border-t border-border bg-background p-3 sm:p-4">
-      <div className="max-w-4xl mx-auto space-y-2">
-        {youtubeInfo.isYouTubeUrl && youtubeInfo.url && (
-          <div className="flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/20 bg-primary/5 text-primary w-fit">
-            <Youtube className="w-4 h-4" />
-            <span className="font-medium">YouTube video detected</span>
-            <Button
-              onClick={handleTranscribe}
-              disabled={disabled}
-              size="sm"
-              variant="default"
-              className="h-7 px-3 text-xs ml-2"
-            >
-              Transcribe & Teach
-            </Button>
-          </div>
-        )}
-        <div className="flex gap-2 sm:gap-3 items-end">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question or paste a YouTube URL..."
-            className="resize-none min-h-[50px] sm:min-h-[60px] max-h-[200px] rounded-xl sm:rounded-2xl text-sm sm:text-base"
-            disabled={disabled}
-          />
+    <div className="space-y-2">
+      {youtubeInfo.isYouTubeUrl && youtubeInfo.url && (
+        <div className="flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/20 bg-primary/5 text-primary w-fit">
+          <Youtube className="w-4 h-4" />
+          <span className="font-medium">YouTube video detected</span>
           <Button
-            onClick={handleSend}
-            disabled={disabled || !input.trim()}
-            size="icon"
-            className="h-[50px] w-[50px] sm:h-[60px] sm:w-[60px] shrink-0 rounded-xl sm:rounded-2xl"
+            onClick={handleTranscribe}
+            disabled={disabled}
+            size="sm"
+            variant="default"
+            className="h-7 px-3 text-xs ml-2"
           >
-            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+            Transcribe & Teach
           </Button>
         </div>
+      )}
+      <div className="flex gap-2 sm:gap-3 items-end">
+        <Textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask a question or paste a YouTube URL..."
+          className="resize-none min-h-[50px] sm:min-h-[60px] max-h-[200px] rounded-xl sm:rounded-2xl text-sm sm:text-base"
+          disabled={disabled}
+        />
+        <Button
+          onClick={handleSend}
+          disabled={disabled || !input.trim()}
+          size="icon"
+          className="h-[50px] w-[50px] sm:h-[60px] sm:w-[60px] shrink-0 rounded-xl sm:rounded-2xl"
+        >
+          <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+        </Button>
       </div>
     </div>
   );
