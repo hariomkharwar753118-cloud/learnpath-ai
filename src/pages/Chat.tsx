@@ -75,7 +75,7 @@ const Chat = () => {
     createConversation();
   }, [user]);
 
-  const streamChat = async (userMessage: string) => {
+  const streamChat = async (userMessage: string, fileData?: { content: string; type: string; name: string }) => {
     if (!session || !conversationId) return;
     
     setIsLoading(true);
@@ -99,9 +99,9 @@ const Chat = () => {
           },
           body: JSON.stringify({
             messages: [...messages, { role: "user", content: userMessage }],
-            fileContent: currentFile?.content,
-            fileType: currentFile?.type,
-            fileName: currentFile?.file.name,
+            fileContent: fileData?.content || currentFile?.content,
+            fileType: fileData?.type || currentFile?.type,
+            fileName: fileData?.name || currentFile?.file.name,
             conversationId,
           }),
         }
@@ -152,11 +152,11 @@ const Chat = () => {
       description: `Processing ${file.name}`,
     });
     
-    // Automatically analyze the file
+    // Automatically analyze the file with direct file data to avoid race condition
     const analysisPrompt = `I've uploaded a file called "${file.name}". Please analyze it and provide a comprehensive explanation.`;
     const userMessage: Message = { role: "user", content: analysisPrompt };
     setMessages(prev => [...prev, userMessage]);
-    await streamChat(analysisPrompt);
+    await streamChat(analysisPrompt, { content, type, name: file.name });
   };
 
   const handleTranscribeYouTube = async (videoUrl: string) => {
