@@ -145,12 +145,18 @@ const Chat = () => {
     await streamChat(content);
   };
 
-  const handleFileSelect = (file: File, content: string, type: string) => {
+  const handleFileSelect = async (file: File, content: string, type: string) => {
     setCurrentFile({ file, content, type });
     toast({
-      title: "File uploaded",
-      description: `${file.name} is ready. Ask a question to analyze it.`,
+      title: "Analyzing file...",
+      description: `Processing ${file.name}`,
     });
+    
+    // Automatically analyze the file
+    const analysisPrompt = `I've uploaded a file called "${file.name}". Please analyze it and provide a comprehensive explanation.`;
+    const userMessage: Message = { role: "user", content: analysisPrompt };
+    setMessages(prev => [...prev, userMessage]);
+    await streamChat(analysisPrompt);
   };
 
   const handleTranscribeYouTube = async (videoUrl: string) => {

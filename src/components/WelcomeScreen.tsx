@@ -10,7 +10,7 @@ const WelcomeScreen = () => {
   const firstName = profile?.full_name?.split(' ')[0] || 'Student';
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
+    <div className="flex-1 flex items-center justify-center p-4 sm:p-6 overflow-y-auto" style={{ pointerEvents: 'auto' }}>
       <div className="max-w-2xl w-full space-y-4 sm:space-y-6">
         <div className="text-center space-y-2 sm:space-y-3">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
