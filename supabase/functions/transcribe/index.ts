@@ -27,13 +27,20 @@ async function callLLM(messages: any[], model = "x-ai/grok-4.1-fast:free") {
     body: JSON.stringify({
       model,
       messages,
-      extra_body: { reasoning: { enabled: true } }
+      // extra_body: { reasoning: { enabled: true } } // Commented out to prevent potential API errors
     })
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    console.error("OpenRouter API Error:", errorData);
+    const errorText = await response.text();
+    console.error("OpenRouter API Error (Raw):", errorText);
+
+    let errorData;
+    try {
+      errorData = JSON.parse(errorText);
+    } catch (e) {
+      errorData = { error: { message: errorText } };
+    }
 
     if (response.status === 429) {
       throw new Error("Rate limit exceeded. Please try again in a moment.");
