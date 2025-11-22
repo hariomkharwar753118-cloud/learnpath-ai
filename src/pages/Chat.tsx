@@ -77,13 +77,13 @@ const Chat = () => {
 
   const streamChat = async (userMessage: string, fileData?: { content: string; type: string; name: string }) => {
     if (!session || !conversationId) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       // Get fresh session to ensure token is valid
       const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
-      
+
       if (sessionError || !freshSession) {
         throw new Error("Authentication session expired. Please sign in again.");
       }
@@ -113,7 +113,7 @@ const Chat = () => {
       }
 
       const data = await response.json();
-      
+
       // Add assistant message with cleaned content and images
       setMessages(prev => [
         ...prev,
@@ -151,7 +151,7 @@ const Chat = () => {
       title: "Analyzing file...",
       description: `Processing ${file.name}`,
     });
-    
+
     // Automatically analyze the file with direct file data to avoid race condition
     const analysisPrompt = `I've uploaded a file called "${file.name}". Please analyze it and provide a comprehensive explanation.`;
     const userMessage: Message = { role: "user", content: analysisPrompt };
@@ -161,7 +161,7 @@ const Chat = () => {
 
   const handleTranscribeYouTube = async (videoUrl: string) => {
     if (!session) return;
-    
+
     setTranscriptState({
       isTranscribing: true,
       videoId: null,
@@ -173,29 +173,6 @@ const Chat = () => {
     try {
       // Get fresh session to ensure token is valid
       const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !freshSession) {
-        throw new Error("Authentication session expired. Please sign in again.");
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${freshSession.access_token}`,
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ videoUrl }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to transcribe video");
-      }
-
       const data = await response.json();
 
       // Update transcript state with results
@@ -296,10 +273,10 @@ const Chat = () => {
           <div className="border-t border-border p-3 sm:p-4 bg-background" style={{ pointerEvents: 'auto' }}>
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
-              <ChatInput 
-                onSendMessage={handleSendMessage} 
+              <ChatInput
+                onSendMessage={handleSendMessage}
                 onTranscribeYouTube={handleTranscribeYouTube}
-                disabled={isLoading || transcriptState.isTranscribing} 
+                disabled={isLoading || transcriptState.isTranscribing}
               />
             </div>
           </div>

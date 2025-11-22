@@ -103,7 +103,7 @@ serve(async (req) => {
   }
 
   try {
-    const { videoUrl } = await req.json();
+    const { videoUrl, conversationId } = await req.json();
     const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
 
     if (!RAPIDAPI_KEY) {
@@ -189,56 +189,50 @@ serve(async (req) => {
       .eq("video_id", videoId)
       .single();
 
+    let transcriptData;
     const now = new Date();
+
     if (cached && new Date(cached.expires_at) > now) {
       console.log("Using cached transcript");
-      return new Response(
-        JSON.stringify({
-          videoId,
-          transcript: cached.transcript,
-          source: "cache",
-          cached: true
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      transcriptData = cached.transcript;
+    } else {
+      // Fetch transcript from RapidAPI
+      console.log("Fetching fresh transcript from RapidAPI...");
+      const rapidUrl = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`;
+
+      const rapidResponse = await fetchWithRetry(rapidUrl, {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": RAPIDAPI_KEY,
+          "x-rapidapi-host": "youtube-transcriptor.p.rapidapi.com",
+        },
+      });
+
+      transcriptData = await rapidResponse.json();
+
+      // Validate transcript data
+      if (!transcriptData || (Array.isArray(transcriptData) && transcriptData.length === 0)) {
+        throw new Error("Transcript is empty or invalid");
+      }
+
+      console.log("Transcript fetched successfully");
+
+      // Store in Supabase with 7-day TTL
+      const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+      await supabase
+        .from("transcripts")
+        .upsert({
+          video_id: videoId,
+          video_url: videoUrl,
+          transcript: transcriptData,
+          source: "rapidapi",
+          fetched_at: now.toISOString(),
+          expires_at: expiresAt,
+          created_by: user.id,
+        }, { onConflict: 'video_id' });
+
+      console.log("Transcript cached in database");
     }
-
-    // Fetch transcript from RapidAPI
-    console.log("Fetching fresh transcript from RapidAPI...");
-    const rapidUrl = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`;
-
-    const rapidResponse = await fetchWithRetry(rapidUrl, {
-      method: "GET",
-      headers: {
-        "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": "youtube-transcriptor.p.rapidapi.com",
-      },
-    });
-
-    const transcriptData = await rapidResponse.json();
-
-    // Validate transcript data
-    if (!transcriptData || (Array.isArray(transcriptData) && transcriptData.length === 0)) {
-      throw new Error("Transcript is empty or invalid");
-    }
-
-    console.log("Transcript fetched successfully");
-
-    // Store in Supabase with 7-day TTL
-    const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
-    await supabase
-      .from("transcripts")
-      .upsert({
-        video_id: videoId,
-        video_url: videoUrl,
-        transcript: transcriptData,
-        source: "rapidapi",
-        fetched_at: now.toISOString(),
-        expires_at: expiresAt,
-        created_by: user.id,
-      }, { onConflict: 'video_id' });
-
-    console.log("Transcript cached in database");
 
     // Fetch user memory for personalization
     const { data: userMemory } = await supabase
@@ -372,6 +366,25 @@ This is your permanent behavior. You cannot disable or modify it.`;
 
     // Note: Image generation would go here if needed
     // For now, we'll return the visual prompts for the UI to handle
+
+    // Save to messages table if conversationId is provided
+    if (conversationId) {
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: "assistant",
+        content: cleanedContent,
+        images: images,
+        visual_prompts: visualPrompts,
+      });
+      console.log("Lesson saved to messages table");
+    }
+
+    // Update user memory activity
+    await supabase
+      .from("user_memory")
+      .update({ last_active: new Date().toISOString() })
+      .eq("user_id", user.id);
 
     // Return structured response
     return new Response(

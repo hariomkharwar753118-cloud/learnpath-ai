@@ -29,6 +29,7 @@ All backend edge functions have been successfully migrated to **OpenRouter API**
 - ✅ Removed ALL inline fetch calls to Lovable/Gemini
 - ✅ Preserved 7-part lesson system prompt (identical to chat)
 - ✅ Preserved RapidAPI transcription & caching
+- ✅ **NEW:** Accepts `conversationId` and saves lesson to chat history
 
 ---
 
@@ -65,6 +66,7 @@ OPENROUTER_API_KEY=sk-or-v1-c01ce5de8fd5b83852ed575939c936d2311642296f0bad86e9ca
 - ✅ **Faster responses** with Grok 4.1 Fast
 - ✅ **Free tier** usage (no cost!)
 - ✅ **Unified Architecture** - Single `callLLM` pattern across all functions
+- ✅ **Seamless History** - Transcribed lessons now appear in chat history
 
 ---
 
@@ -88,6 +90,7 @@ OPENROUTER_API_KEY=sk-or-v1-c01ce5de8fd5b83852ed575939c936d2311642296f0bad86e9ca
 - [ ] Lesson generated from transcript via OpenRouter
 - [ ] 7-part format appears
 - [ ] Visual prompts extracted
+- [ ] **Lesson appears in chat history**
 
 ---
 
