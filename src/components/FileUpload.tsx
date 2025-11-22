@@ -5,9 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface FileUploadProps {
   onFileSelect: (file: File, content: string, type: string) => void;
+  isProcessing?: boolean;
 }
 
-const FileUpload = ({ onFileSelect }: FileUploadProps) => {
+const FileUpload = ({ onFileSelect, isProcessing }: FileUploadProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,12 +87,14 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
             <p className="text-xs sm:text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
             <p className="text-xs text-muted-foreground">
               {(selectedFile.size / 1024).toFixed(1)} KB
+              {isProcessing && " • Analyzing..."}
             </p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={removeFile}
+            disabled={isProcessing}
             className="h-7 w-7 sm:h-8 sm:w-8 shrink-0"
           >
             <X className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -102,11 +105,10 @@ const FileUpload = ({ onFileSelect }: FileUploadProps) => {
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center transition-all ${
-            isDragging
+          className={`border-2 border-dashed rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center transition-all ${isDragging
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/50 hover:bg-primary/5"
-          }`}
+            }`}
         >
           <input
             ref={fileInputRef}

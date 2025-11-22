@@ -32,17 +32,16 @@ const ChatInput = ({ onSendMessage, onTranscribeYouTube, disabled }: ChatInputPr
     }
   };
 
-  const handleTranscribe = () => {
-    if (youtubeInfo.url && onTranscribeYouTube) {
-      onTranscribeYouTube(youtubeInfo.url);
-      setInput("");
-    }
-  };
-
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      // Auto-trigger YouTube transcription if YouTube URL detected
+      if (youtubeInfo.isYouTubeUrl && youtubeInfo.url && onTranscribeYouTube) {
+        onTranscribeYouTube(youtubeInfo.url);
+        setInput("");
+      } else {
+        handleSend();
+      }
     }
   };
 
@@ -50,18 +49,9 @@ const ChatInput = ({ onSendMessage, onTranscribeYouTube, disabled }: ChatInputPr
     <div className="border-t border-border bg-background p-3 sm:p-4">
       <div className="max-w-4xl mx-auto space-y-2">
         {youtubeInfo.isYouTubeUrl && youtubeInfo.url && (
-          <div className="flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/20 bg-primary/5 text-primary w-fit">
+          <div className="flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/20 bg-primary/5 text-primary w-fit animate-fade-in">
             <Youtube className="w-4 h-4" />
-            <span className="font-medium">YouTube video detected</span>
-            <Button
-              onClick={handleTranscribe}
-              disabled={disabled}
-              size="sm"
-              variant="default"
-              className="h-7 px-3 text-xs ml-2"
-            >
-              Transcribe & Teach
-            </Button>
+            <span className="font-medium">YouTube video detected • Press Enter to transcribe</span>
           </div>
         )}
         <div className="flex gap-2 sm:gap-3 items-end">

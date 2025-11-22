@@ -32,32 +32,43 @@ const ChatWindow = ({ messages, isLoading }: ChatWindowProps) => {
           </div>
         </div>
       )}
-      
+
       {messages.map((message, index) => (
         <div
           key={index}
           className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-fade-in px-1`}
+          style={{
+            animationDelay: `${index * 0.05}s`,
+            animationFillMode: "backwards"
+          }}
         >
           <div
-            className={`max-w-[85%] sm:max-w-[80%] rounded-2xl sm:rounded-3xl px-4 sm:px-6 py-3 sm:py-4 ${
-              message.role === "user"
-                ? "bg-secondary text-secondary-foreground"
-                : "bg-primary/10 text-foreground border border-primary/20"
-            }`}
+            className={`max-w-[85%] sm:max-w-[80%] rounded-2xl sm:rounded-3xl px-4 sm:px-6 py-3 sm:py-4 transition-all duration-300 hover:scale-[1.02] ${message.role === "user"
+                ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg"
+                : "bg-gradient-to-br from-primary/10 to-primary/5 text-foreground border-2 border-primary/20 shadow-md"
+              }`}
           >
             <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
           </div>
         </div>
       ))}
-      
+
       {isLoading && (
         <div className="flex justify-start animate-fade-in px-1">
-          <div className="bg-primary/10 text-foreground border border-primary/20 rounded-2xl sm:rounded-3xl px-4 sm:px-6 py-3 sm:py-4">
-            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 text-foreground border-2 border-primary/20 rounded-2xl sm:rounded-3xl px-4 sm:px-6 py-3 sm:py-4 shadow-md">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+              </div>
+              <span className="text-sm text-muted-foreground">Generating your lesson...</span>
+            </div>
           </div>
         </div>
       )}
-      
+
       <div ref={messagesEndRef} />
     </div>
   );
