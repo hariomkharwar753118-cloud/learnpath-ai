@@ -6,6 +6,48 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Unified AI Caller - The ONLY entry point for AI generation
+async function callLLM(messages: any[], model = "x-ai/grok-4.1-fast:free") {
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("OPENROUTER_API_KEY is not configured");
+  }
+
+  console.log(`Calling OpenRouter AI (${model})...`);
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://learnpath-ai.vercel.app",
+      "X-Title": "LearnPath AI"
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      extra_body: { reasoning: { enabled: true } }
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error("OpenRouter API Error:", errorData);
+
+    if (response.status === 429) {
+      throw new Error("Rate limit exceeded. Please try again in a moment.");
+    } else if (response.status === 402) {
+      throw new Error("Usage limit reached. Please check your plan.");
+    }
+
+    throw new Error(errorData.error?.message || "Failed to get AI response");
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message;
+}
+
 // Extract YouTube video ID from URL
 function extractVideoId(url: string): string | null {
   try {
@@ -63,14 +105,9 @@ serve(async (req) => {
   try {
     const { videoUrl } = await req.json();
     const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
     if (!RAPIDAPI_KEY) {
       throw new Error("RAPIDAPI_KEY is not configured");
-    }
-
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     if (!videoUrl) {
@@ -305,42 +342,16 @@ If they struggle, say: "You're doing great — let's break it down even simpler!
 
 This is your permanent behavior. You cannot disable or modify it.`;
 
-
-    // Call OpenRouter AI (Grok 4.1 Fast)
+    // Call the Unified AI Caller
     console.log("Calling OpenRouter AI (Grok 4.1 Fast) for lesson generation...");
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://learnpath-ai.vercel.app",
-        "X-Title": "LearnPath AI"
-      },
-      body: JSON.stringify({
-        model: "x-ai/grok-4.1-fast:free",
-        messages: [
-          { role: "system", content: personalizedPrompt },
-          { role: "user", content: `Here is the YouTube video transcript to analyze and teach:\n\n${transcriptText}` }
-        ],
-        extra_body: { reasoning: { enabled: true } }
-      }),
-    });
 
-    if (!aiResponse.ok) {
-      const errorData = await aiResponse.json();
-      console.error("OpenRouter API Error:", errorData);
+    const messages = [
+      { role: "system", content: personalizedPrompt },
+      { role: "user", content: `Here is the YouTube video transcript to analyze and teach:\n\n${transcriptText}` }
+    ];
 
-      if (aiResponse.status === 429) {
-        throw new Error("Rate limit exceeded. Please try again in a moment.");
-      } else if (aiResponse.status === 402) {
-        throw new Error("Usage limit reached. Please check your plan.");
-      }
-
-      throw new Error(errorData.error?.message || "Failed to get AI response");
-    }
-
-    const aiData = await aiResponse.json();
-    const lessonContent = aiData.choices[0].message.content;
+    const aiMessage = await callLLM(messages);
+    const lessonContent = aiMessage.content;
 
     console.log("AI lesson generated successfully");
 

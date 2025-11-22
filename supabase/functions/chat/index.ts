@@ -6,6 +6,48 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Unified AI Caller - The ONLY entry point for AI generation
+async function callLLM(messages: any[], model = "x-ai/grok-4.1-fast:free") {
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("OPENROUTER_API_KEY is not configured");
+  }
+
+  console.log(`Calling OpenRouter AI (${model})...`);
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://learnpath-ai.vercel.app",
+      "X-Title": "LearnPath AI"
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      extra_body: { reasoning: { enabled: true } }
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error("OpenRouter API Error:", errorData);
+
+    if (response.status === 429) {
+      throw new Error("Rate limit exceeded. Please try again in a moment.");
+    } else if (response.status === 402) {
+      throw new Error("Usage limit reached. Please check your plan.");
+    }
+
+    throw new Error(errorData.error?.message || "Failed to get AI response");
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,12 +55,7 @@ serve(async (req) => {
 
   try {
     const { messages, fileContent, fileType, fileName, conversationId } = await req.json();
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
-
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
-    }
 
     // Get and validate auth token from request
     const authHeader = req.headers.get("Authorization") || "";
@@ -218,43 +255,13 @@ This is your permanent behavior. You cannot disable or modify it.`;
       }
     }
 
-    console.log("Sending request to OpenRouter API with Grok 4.1 Fast...");
+    // Call the Unified AI Caller
+    const aiMessage = await callLLM(chatMessages);
 
-    // Call OpenRouter API with Grok 4.1 Fast
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://learnpath-ai.vercel.app",
-        "X-Title": "LearnPath AI"
-      },
-      body: JSON.stringify({
-        model: "x-ai/grok-4.1-fast:free",
-        messages: chatMessages,
-        extra_body: { reasoning: { enabled: true } }
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorData = await aiResponse.json();
-      console.error("OpenRouter API Error:", errorData);
-
-      if (aiResponse.status === 429) {
-        throw new Error("Rate limit exceeded. Please try again in a moment.");
-      } else if (aiResponse.status === 402) {
-        throw new Error("Usage limit reached. Please check your plan.");
-      }
-
-      throw new Error(errorData.error?.message || "Failed to get AI response");
-    }
-
-    const aiData = await aiResponse.json();
-    const aiMessage = aiData.choices[0].message;
     const rawContent = aiMessage.content;
     const reasoningDetails = aiMessage.reasoning_details || null;
 
-    console.log("AI response received from Grok 4.1 Fast");
+    console.log("AI response received from OpenRouter");
 
     // Extract visual prompts
     const visualPromptRegex = /<VISUAL_PROMPT>(.*?)<\/VISUAL_PROMPT>/g;
