@@ -75,7 +75,7 @@ const Chat = () => {
     createConversation();
   }, [user]);
 
-  const streamChat = async (userMessage: string) => {
+  const streamChat = async (userMessage: string, fileData?: { content: string; type: string; name: string }) => {
     if (!session || !conversationId) return;
     
     setIsLoading(true);
@@ -99,9 +99,9 @@ const Chat = () => {
           },
           body: JSON.stringify({
             messages: [...messages, { role: "user", content: userMessage }],
-            fileContent: currentFile?.content,
-            fileType: currentFile?.type,
-            fileName: currentFile?.file.name,
+            fileContent: fileData?.content || currentFile?.content,
+            fileType: fileData?.type || currentFile?.type,
+            fileName: fileData?.name || currentFile?.file.name,
             conversationId,
           }),
         }
@@ -145,12 +145,18 @@ const Chat = () => {
     await streamChat(content);
   };
 
-  const handleFileSelect = (file: File, content: string, type: string) => {
+  const handleFileSelect = async (file: File, content: string, type: string) => {
     setCurrentFile({ file, content, type });
     toast({
-      title: "File uploaded",
-      description: `${file.name} is ready. Ask a question to analyze it.`,
+      title: "Analyzing file...",
+      description: `Processing ${file.name}`,
     });
+    
+    // Automatically analyze the file with direct file data to avoid race condition
+    const analysisPrompt = `I've uploaded a file called "${file.name}". Please analyze it and provide a comprehensive explanation.`;
+    const userMessage: Message = { role: "user", content: analysisPrompt };
+    setMessages(prev => [...prev, userMessage]);
+    await streamChat(analysisPrompt, { content, type, name: file.name });
   };
 
   const handleTranscribeYouTube = async (videoUrl: string) => {
@@ -281,13 +287,13 @@ const Chat = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Chat */}
-        <div className="flex-1 flex flex-col min-w-0 order-1">
+        <div className="flex-1 flex flex-col min-w-0 order-1" style={{ pointerEvents: 'auto' }}>
           {messages.length === 0 ? (
             <WelcomeScreen />
           ) : (
             <ChatWindow messages={messages} isLoading={isLoading} />
           )}
-          <div className="border-t border-border p-3 sm:p-4 bg-background">
+          <div className="border-t border-border p-3 sm:p-4 bg-background" style={{ pointerEvents: 'auto' }}>
             <div className="max-w-4xl mx-auto space-y-3 sm:space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
               <ChatInput 
