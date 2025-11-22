@@ -13,11 +13,11 @@ serve(async (req) => {
 
   try {
     const { messages, fileContent, fileType, fileName, conversationId } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     // Get and validate auth token from request
@@ -218,23 +218,27 @@ This is your permanent behavior. You cannot disable or modify it.`;
       }
     }
 
-    console.log("Sending request to Lovable AI Gateway...");
+    console.log("Sending request to OpenRouter API with Grok 4.1 Fast...");
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call OpenRouter API with Grok 4.1 Fast
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "HTTP-Referer": "https://learnpath-ai.vercel.app",
+        "X-Title": "LearnPath AI"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "x-ai/grok-4.1-fast:free",
         messages: chatMessages,
+        extra_body: { reasoning: { enabled: true } }
       }),
     });
 
     if (!aiResponse.ok) {
       const errorData = await aiResponse.json();
-      console.error("AI Gateway Error:", errorData);
+      console.error("OpenRouter API Error:", errorData);
 
       if (aiResponse.status === 429) {
         throw new Error("Rate limit exceeded. Please try again in a moment.");
@@ -246,9 +250,11 @@ This is your permanent behavior. You cannot disable or modify it.`;
     }
 
     const aiData = await aiResponse.json();
-    const rawContent = aiData.choices[0].message.content;
+    const aiMessage = aiData.choices[0].message;
+    const rawContent = aiMessage.content;
+    const reasoningDetails = aiMessage.reasoning_details || null;
 
-    console.log("AI response received");
+    console.log("AI response received from Grok 4.1 Fast");
 
     // Extract visual prompts
     const visualPromptRegex = /<VISUAL_PROMPT>(.*?)<\/VISUAL_PROMPT>/g;
@@ -340,6 +346,7 @@ This is your permanent behavior. You cannot disable or modify it.`;
         content: cleanedContent,
         images: images,
         visualPrompts: visualPrompts,
+        reasoning_details: reasoningDetails,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
