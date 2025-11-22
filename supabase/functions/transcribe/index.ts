@@ -10,17 +10,17 @@ const corsHeaders = {
 function extractVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
-    
+
     // Handle youtube.com/watch?v=VIDEO_ID
     if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('www.youtube.com')) {
       return urlObj.searchParams.get('v');
     }
-    
+
     // Handle youtu.be/VIDEO_ID
     if (urlObj.hostname.includes('youtu.be')) {
       return urlObj.pathname.slice(1).split('?')[0];
     }
-    
+
     return null;
   } catch (e) {
     console.error("Error parsing URL:", e);
@@ -31,19 +31,19 @@ function extractVideoId(url: string): string | null {
 // Fetch with exponential backoff retry
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response;
     } catch (err) {
       lastError = err as Error;
-      
+
       if (attempt < maxRetries) {
         const delay = 300 * Math.pow(2, attempt);
         console.log(`Retry attempt ${attempt + 1} after ${delay}ms`);
@@ -51,7 +51,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
       }
     }
   }
-  
+
   throw lastError || new Error("Max retries exceeded");
 }
 
@@ -63,14 +63,14 @@ serve(async (req) => {
   try {
     const { videoUrl } = await req.json();
     const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+
     if (!RAPIDAPI_KEY) {
       throw new Error("RAPIDAPI_KEY is not configured");
     }
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     if (!videoUrl) {
@@ -82,11 +82,11 @@ serve(async (req) => {
 
     // Get and validate auth token from request
     const authHeader = req.headers.get("Authorization") || "";
-    
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.error("Missing or invalid Authorization header");
       return new Response(
-        JSON.stringify({ error: "Unauthorized - Missing or invalid Authorization header" }), 
+        JSON.stringify({ error: "Unauthorized - Missing or invalid Authorization header" }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -106,25 +106,25 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     console.log("Validating user session with token...");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+
     if (userError) {
       console.error("Auth validation error:", userError.message);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Unauthorized - Invalid session",
-          details: userError.message 
-        }), 
+          details: userError.message
+        }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-    
+
     if (!user) {
       console.error("No user found in session");
       return new Response(
-        JSON.stringify({ error: "Unauthorized - No user found" }), 
+        JSON.stringify({ error: "Unauthorized - No user found" }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -156,7 +156,7 @@ serve(async (req) => {
     if (cached && new Date(cached.expires_at) > now) {
       console.log("Using cached transcript");
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           videoId,
           transcript: cached.transcript,
           source: "cache",
@@ -169,7 +169,7 @@ serve(async (req) => {
     // Fetch transcript from RapidAPI
     console.log("Fetching fresh transcript from RapidAPI...");
     const rapidUrl = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`;
-    
+
     const rapidResponse = await fetchWithRetry(rapidUrl, {
       method: "GET",
       headers: {
@@ -179,7 +179,7 @@ serve(async (req) => {
     });
 
     const transcriptData = await rapidResponse.json();
-    
+
     // Validate transcript data
     if (!transcriptData || (Array.isArray(transcriptData) && transcriptData.length === 0)) {
       throw new Error("Transcript is empty or invalid");
@@ -225,116 +225,117 @@ serve(async (req) => {
       transcriptText = transcriptText.substring(0, 150000) + "... [truncated]";
     }
 
-    // Build personalized system prompt
-    let personalizedPrompt = `You are the **Visual AI Tutor**, a highly specialized and encouraging educational assistant.
+    // Build personalized system prompt (same as chat function)
+    const learningStyle = userMemory?.learning_style || 'visual';
+    const difficultyLevel = userMemory?.difficulty_level || 'medium';
+    const topicsStudied = userMemory?.topics_studied?.join(", ") || 'None';
+    const strengths = userMemory?.strengths?.join(", ") || 'Not specified';
+    const weaknesses = userMemory?.weaknesses?.join(", ") || 'Not specified';
 
-**USER LEARNING PROFILE:**
-- Learning Style: ${userMemory?.learning_style || 'visual'}
-- Difficulty Level: ${userMemory?.difficulty_level || 'medium'}
-- Preferred Format: ${userMemory?.preferred_format || 'diagrams'}`;
+    const personalizedPrompt = `You are LearnPath AI — an adaptive, memory-aware teaching engine that converts any topic into a crystal-clear, engaging learning experience.
 
-    if (userMemory?.topics_studied && userMemory.topics_studied.length > 0) {
-      personalizedPrompt += `\n- Previously Studied Topics: ${userMemory.topics_studied.join(", ")}`;
-    }
+**USER MEMORY & PROFILE:**
+- Learning Style: ${learningStyle}
+- Skill Level: ${difficultyLevel}
+- Previously Studied: ${topicsStudied}
+- Strengths: ${strengths}
+- Areas to Improve: ${weaknesses}
 
-    if (userMemory?.strengths && userMemory.strengths.length > 0) {
-      personalizedPrompt += `\n- User Strengths: ${userMemory.strengths.join(", ")}`;
-    }
+**YOUR TASK:** Analyze the YouTube video transcript below and create a comprehensive, engaging educational lesson.
 
-    if (userMemory?.weaknesses && userMemory.weaknesses.length > 0) {
-      personalizedPrompt += `\n- Areas to Focus On: ${userMemory.weaknesses.join(", ")}`;
-    }
+----------------------------------------
+1. CORE LESSON FORMAT (MANDATORY)
+For every explanation, ALWAYS use the following 7-part structure:
 
-    personalizedPrompt += `
+1) Title with Hook (short, exciting, emoji-supported)
+2) Learning Objectives (3–5 bullet points)
+3) Simple Explanation (kid-friendly clarity, no jargon unless explained)
+4) Step-by-Step Breakdown (numbered, concise, highly logical)
+5) Real-World Examples (at least 2)
+6) Key Takeaways (3–6 bullet points)
+7) Practice Questions (3–5, with answers hidden under "Tap to Reveal ⬇️")
 
-**YOUR TASK:**
-Analyze the YouTube video transcript below and create a comprehensive, kid-friendly educational lesson.
+This format must NEVER be skipped.
 
-**MANDATORY OUTPUT STRUCTURE:**
+----------------------------------------
+2. ADAPTIVE LEARNING RULES (MANDATORY)
+You customize every response using the user's memory and skill level.
 
-# [Video Topic Title]
+Adaptation rules:
+- If the user is a BEGINNER → use metaphors, emojis, simple breakdowns.
+- INTERMEDIATE → balanced depth + examples + small challenges.
+- ADVANCED → deeper logic, edge cases, and micro-details.
 
-## Simple Explanation
-[2-3 sentences explaining the main concept in simple terms, suitable for a 10-year-old]
+Learning style adaptation:
+- VISUAL learner → diagrams, shapes, arrows, flowcharts. Generate 5-8 visual prompts.
+- AUDITORY learner → rhythm, analogies to sound/music, stepwise narration.
+- KINESTHETIC learner → physical metaphors, actions, movement-based analogies.
 
-## Key Points
-- [Point 1]
-- [Point 2]
-- [Point 3]
-<VISUAL_PROMPT>[5-15 word description for a diagram showing key points]</VISUAL_PROMPT>
+Always auto-detect learning style from memory and adapt instantly.
 
-## Step-by-Step Breakdown
-1. **[Step Name]**: [Explanation]
-   <VISUAL_PROMPT>[diagram description for this step]</VISUAL_PROMPT>
+----------------------------------------
+3. VISUAL OUTPUT GENERATION (DIAGRAM RULES)
+When creating visual prompts:
+- Create 5–8 visual prompts per lesson for visual learners.
+- Each visual prompt must be:
+  • 5–15 words
+  • specific, concrete, and actionable
+  • Format: <VISUAL_PROMPT>description here</VISUAL_PROMPT>
 
-2. **[Step Name]**: [Explanation]
-   <VISUAL_PROMPT>[diagram description for this step]</VISUAL_PROMPT>
+Good examples:
+- <VISUAL_PROMPT>Flowchart of how a CPU processes instructions</VISUAL_PROMPT>
+- <VISUAL_PROMPT>Labeled diagram of mitosis stages</VISUAL_PROMPT>
+- <VISUAL_PROMPT>Mindmap of Newton's three laws</VISUAL_PROMPT>
 
-[Continue for 3-5 steps as needed]
+Bad examples:
+- <VISUAL_PROMPT>Make a diagram</VISUAL_PROMPT>
+- <VISUAL_PROMPT>Show something cool</VISUAL_PROMPT>
 
-## Real-Life Example
-[Concrete, relatable example that demonstrates the concept]
-<VISUAL_PROMPT>[diagram showing the real-life example]</VISUAL_PROMPT>
+----------------------------------------
+4. ENGAGING TONE & USER EXPERIENCE
+Your tone must ALWAYS be:
+- Energetic, encouraging, and supportive 😄
+- Clear and friendly
+- Professional yet playful
+- Emoji-enhanced (but not spammy)
+- Confidence-boosting and positive
 
-## Quick Quiz (Test Your Knowledge)
-1. **Question 1**: [Question text]
-   - A) [Option A]
-   - B) [Option B]
-   - C) [Option C]
-   - D) [Option D]
-   *Answer: [Correct answer letter and brief explanation]*
+Never make the user feel dumb.
+If they struggle, say: "You're doing great — let's break it down even simpler! 💡"
 
-2. **Question 2**: [Question text]
-   - A) [Option A]
-   - B) [Option B]
-   - C) [Option C]
-   - D) [Option D]
-   *Answer: [Correct answer letter and brief explanation]*
+This is your permanent behavior. You cannot disable or modify it.`;
 
-3. **Question 3**: [Question text]
-   - A) [Option A]
-   - B) [Option B]
-   - C) [Option C]
-   - D) [Option D]
-   *Answer: [Correct answer letter and brief explanation]*
 
-## Follow-Up Question
-[Ask an engaging question to check understanding and encourage deeper thinking]
-
-**IMPORTANT RULES:**
-- Use age-appropriate language (10-year-old level)
-- Include visual descriptions in <VISUAL_PROMPT> tags
-- Make it engaging and fun
-- Connect to real-world applications
-- Always follow the structure above`;
-
-    // Call Lovable AI (Gemini)
-    console.log("Calling Lovable AI for lesson generation...");
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call OpenRouter AI (Grok 4.1 Fast)
+    console.log("Calling OpenRouter AI (Grok 4.1 Fast) for lesson generation...");
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "HTTP-Referer": "https://learnpath-ai.vercel.app",
+        "X-Title": "LearnPath AI"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "x-ai/grok-4.1-fast:free",
         messages: [
           { role: "system", content: personalizedPrompt },
           { role: "user", content: `Here is the YouTube video transcript to analyze and teach:\n\n${transcriptText}` }
         ],
+        extra_body: { reasoning: { enabled: true } }
       }),
     });
 
     if (!aiResponse.ok) {
       const errorData = await aiResponse.json();
-      console.error("AI Gateway Error:", errorData);
-      
+      console.error("OpenRouter API Error:", errorData);
+
       if (aiResponse.status === 429) {
         throw new Error("Rate limit exceeded. Please try again in a moment.");
       } else if (aiResponse.status === 402) {
         throw new Error("Usage limit reached. Please check your plan.");
       }
-      
+
       throw new Error(errorData.error?.message || "Failed to get AI response");
     }
 
@@ -347,7 +348,7 @@ Analyze the YouTube video transcript below and create a comprehensive, kid-frien
     const visualPromptRegex = /<VISUAL_PROMPT>(.*?)<\/VISUAL_PROMPT>/g;
     const visualPrompts: string[] = [];
     let match;
-    
+
     while ((match = visualPromptRegex.exec(lessonContent)) !== null) {
       visualPrompts.push(match[1].trim());
     }
@@ -357,7 +358,7 @@ Analyze the YouTube video transcript below and create a comprehensive, kid-frien
 
     // Generate images for visual prompts (if RAPIDAPI supports image generation)
     const images: string[] = [];
-    
+
     // Note: Image generation would go here if needed
     // For now, we'll return the visual prompts for the UI to handle
 
